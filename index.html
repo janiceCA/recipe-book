@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PDF Flip Book</title>
+  <style>
+    body {
+      font-family: "Trebuchet MS", sans-serif;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      background: #f4f4f4;
+    }
+    #flipbook {
+      width: 600px;
+      height: 400px;
+      margin: 20px auto;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    .page {
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+    }
+  </style>
+  <!-- Use jQuery 2.2.4 for compatibility -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+  <!-- Include jQuery Migrate to help older plugins work with jQuery -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-migrate/1.4.1/jquery-migrate.min.js"></script>
+  <!-- Include Turn.js version 3.1.0 from cdnjs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3.1.0/turn.min.js"></script>
+  <!-- Include PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <script>
+    // Set the PDF.js worker source for rendering PDF pages
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
+  </script>
+</head>
+<body>
+  <h1>PDF Flip Book</h1>
+  <input type="file" id="fileInput" accept="application/pdf">
+  <div id="flipbook"></div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const flipbook = document.getElementById('flipbook');
+
+    fileInput.addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (file && file.type === 'application/pdf') {
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+          const typedarray = new Uint8Array(this.result);
+          // Load PDF with PDF.js
+          pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+            const numPages = pdf.numPages;
+            flipbook.innerHTML = ''; // Clear previous content
+            let pagesLoaded = 0;
+            for (let i = 1; i <= numPages; i++) {
+              pdf.getPage(i).then(page => {
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const context = canvas.getContext('2d');
+                const renderContext = {
+                  canvasContext: context,
+                  viewport: viewport
+                };
+                // Render PDF page into canvas
+                page.render(renderContext).promise.then(() => {
+                  const pageDiv = document.createElement('div');
+                  pageDiv.classList.add('page');
+                  pageDiv.appendChild(canvas);
+                  flipbook.appendChild(pageDiv);
+                  pagesLoaded++;
+                  // Initialize Turn.js once all pages are loaded
+                  if (pagesLoaded === numPages) {
+                    $('#flipbook').turn({
+                      width: flipbook.clientWidth,
+                      height: flipbook.clientHeight,
+                      autoCenter: true
+                    });
+                  }
+                });
+              });
+            }
+          });
+        };
+        fileReader.readAsArrayBuffer(file);
+      } else {
+        alert('Please select a valid PDF file.');
+      }
+    });
+  </script>
+</body>
+</html>
